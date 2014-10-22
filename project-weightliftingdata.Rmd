@@ -1,0 +1,45 @@
+---
+title: "predmachlearn-006-project"
+author: "Knut Behrends"
+date: "22.10.2014"
+output: html_document
+---
+
+```{r echo=FALSE}
+if(system("uname -n") == "well"){
+        setwd("~/Documents/coursera/datascience/08-machinelearning/predmachlearn-006-project")
+}
+
+```
+## Predicting the quality of physical exercising.
+
+
+Analysis from sensor data acquired during exercising with barbells.
+
+Please read the file [Background](background.html) to get familiar with the subject matter.
+
+### Read In Data Files, Load R Packages
+```{r init}
+training <- read.csv("data/pml-training.csv")
+testing <- read.csv("data/pml-testing.csv")
+
+
+```
+
+```{r return="hide", message=FALSE}
+library(Hmisc)
+#contents(training)
+#descr <- describe(training)
+#str(descr)
+
+
+
+```
+There is not much data cleaning necessery. All columns have nice all-lowercase, self-describing names, and few datatypes : `r unique(sapply(training, class))`).
+There are `r length(names(training))` variables: 
+
+```{r }
+nas <- colSums(is.na(training));table(nas)
+
+```
+There are `r length(nas[nas == 0 ])` columns which have no NA values, and `r length(nas[nas !=0 ]) ` columns all of which have the same number of `r sprintf("%i", max(nas[nas !=0 ]))` NAs.
