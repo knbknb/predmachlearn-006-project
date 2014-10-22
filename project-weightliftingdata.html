@@ -60,14 +60,12 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 
 <div id="predicting-the-quality-of-physical-exercising." class="section level2">
 <h2>Predicting the quality of physical exercising.</h2>
-<div id="analysis-from-sensor-data-acquired-during-exercising-with-barbells." class="section level3">
-<h3>Analysis from sensor data acquired during exercising with barbells.</h3>
+<p>Analysis from sensor data acquired during exercising with barbells.</p>
 <p>Please read the file <a href="background.html">Background</a> to get familiar with the subject matter.</p>
-</div>
 <div id="read-in-data-files-load-r-packages" class="section level3">
 <h3>Read In Data Files, Load R Packages</h3>
-<pre class="r"><code>training &lt;- read.csv(&quot;data/pml-training.csv&quot;)
-testing &lt;- read.csv(&quot;data/pml-testing.csv&quot;)</code></pre>
+<pre class="r"><code>training &lt;- read.csv(&quot;../data/pml-training.csv&quot;)
+testing &lt;- read.csv(&quot;../data/pml-testing.csv&quot;)</code></pre>
 <pre class="r"><code>library(Hmisc)
 #contents(training)
 #descr &lt;- describe(training)
