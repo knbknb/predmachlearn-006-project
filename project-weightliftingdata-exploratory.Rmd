@@ -6,10 +6,11 @@ output: html_document
 ---
 
 ```{r echo=FALSE, return="hide"}
-if(system("uname -n") == "well"){
+host <-system("uname -n", intern = TRUE)
+if(host == "well"){
         setwd("~/Documents/coursera/datascience/08-machinelearning/predmachlearn-006-project")
 }
-
+getwd()
 ```
 ###  Programming Project: Qualitative Activity Recognition of Weight Lifting Exercises. 
 
@@ -17,18 +18,20 @@ if(system("uname -n") == "well"){
 > Predicting the quality of physical exercising. Analysis from sensor data acquired during exercising with dumbbells.  
 Please read the file [Background](background.html) to get familiar with the assignment and the subject matter. You can also read an [academic paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) on the open dataset, its [creators](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) and its use in medicine.
 
+### Exploratory Phase 
 #### Read In Data Files, Load R Packages
-```{r init, return="hide"}
-getwd()
+```{r init, cache=TRUE, return="hide"}
+
 training <- read.csv("../data/pml-training.csv")
 testing <- read.csv("../data/pml-testing.csv")
 
 
 ```
 
-```{r return="hide", message=FALSE}
+```{r libs, dependson="init", return="hide", message=FALSE}
 library(Hmisc)
 library(ggplot2)
+library(caret)
 #contents(training)
 #descr <- describe(training)
 #str(descr)
@@ -45,17 +48,49 @@ nas <- colSums(is.na(training));table(nas)
 ```
 There are `r length(nas[nas == 0 ])` columns which have no NA values, and `r length(nas[nas !=0 ]) ` columns all of which have the same number of `r sprintf("%i", max(nas[nas !=0 ]))` NAs.
 
+The 6 participants have performed the same number of exercises, at least it is comparable at the same order of magnitude.
+
 ```{r }
 
 table(training$user_name)
 
 ```
 
+They have also produced the same number of types of exercises:
+
 ```{r}
 qplot(classe, data=training, fill=user_name)
 
-p <- ggplot(training, aes=(user_name))
-p <- p+  geom_bar()
+```
+
+
+*belt, forearm, arm, and dumbbell*
+```{r fet}
+goodattr<- "|classe|user_name|problem|^roll|^pitch|^yaw_"
+locs <- paste0(c("belt", "forearm", "(?<!fore)arm", "dumbbell"),  goodattr)
+coord<- paste0(c("_[xyz]$"), goodattr)
+locs_params <- lapply(locs, FUN=function(x){i <- grep(x, names(training), perl=TRUE); training[, i]})
+locs_params_coord <- lapply(locs_params, FUN=function(x){i <-  grep(coord, names(x), perl=TRUE); x[, i]})
+nocoord <- paste0(c("_[xyz]$"))
+locs_params_nocoord <- lapply(locs_params, FUN=function(x){i <-  grep(nocoord, names(x), perl=TRUE, invert=TRUE); x[, i]})
+
+#grep(coord, names(locs_params), perl=TRUE)
+#names(locs_params[[4]])
+lapply(locs_params_nocoord, describe)
+p <- ggplot(locs_params_nocoord[[4]], aes(classe, fill=classe))
+p <- p + geom_bar()
+p <- p+  facet_grid(user_name ~ . )
 p
+
+df=locs_params_coord[[1]]
+
+sdf <-df[sample(nrow(df), 30),]
+
+featurePlot(x=sdf, y=sdf$classe, plot="pairs")
+
+par(2,2)
+
+lapply(locs_params, names)
+sapply(locs_params, FUN=function(x){featurePlot(x=x, y=x$classe, plot="pairs")})
 ```
 
