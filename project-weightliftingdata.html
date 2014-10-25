@@ -154,9 +154,7 @@ rm(t2)</code></pre>
 <p>Close inspection of the attributes indicates that there are some more primary (“raw”) sensor data,and there are lots of derived attributes, such as projections of raw coordinates into some spatial planes (the x-y plane, the x-z-plane etc). There are also descriptive statistics calculated from the raw sensor data. These descriptive statistics are prefixed (or suffixed) with “total_”, “var_”, “curtosis_”, “skewness_”, etc.</p>
 <p>I do not know how they calculated these decriptive metrics. Probably by time-slicing (folding) some of the raw data. Note there are some columns <em>(new_window, num_window)</em>, maybe indicative of sliding time-windows.</p>
 <p>There are some time-series data encoded in the dataset <em>(raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp)</em>, but we’ll just ignore them. They were important for the researchers, to conduct various numerical experiments: how fast did their algorithms and models respond? How small can the training dataset be to make accurate predictions?</p>
-<blockquote>
 <p>All these variables by definition represent <em>interactions</em> between the raw data. These derived attributes also contain lots of NAs. To make modeling easier, it is best to <em>remove</em> the attributes entirely.</p>
-</blockquote>
 <div id="removing-irrelevant-attributes" class="section level4">
 <h4>Removing irrelevant attributes</h4>
 <p>In the synopsis it says, the sensors were placed on <em>belt, forearm, arm</em>, and <em>dumbbell</em>. The sensors register</p>
@@ -169,7 +167,7 @@ rm(t2)</code></pre>
 cols &lt;-grep(rx, names(training), perl=TRUE, value=TRUE)</code></pre>
 <p>Subsetting the data frame:</p>
 <pre class="r"><code>training &lt;- subset(training, select=cols)</code></pre>
-<p>The interesting remaining columns are:</p>
+<p><strong>The interesting remaining columns are</strong>:</p>
 <pre class="r"><code>contents(training)</code></pre>
 <pre><code>## 
 ## Data frame:training  19642 observations and 50 variables    Maximum # NAs:20
@@ -234,8 +232,62 @@ cols &lt;-grep(rx, names(training), perl=TRUE, value=TRUE)</code></pre>
 ## |classe   |A,B,C,D,E                                  |
 ## +---------+-------------------------------------------+</code></pre>
 <p>These will be used for building a machine learning model.<br />Note that there are only 20 NAs. These are the appended test cases.</p>
-<p>However, a feature plot (plotmatrix) for <em>all</em> 50 attributes and <em>all</em> 19600 rows takes a few minutes to build.<br />This is unacceptably slow. So I prefer to work in Weka, which plots data much faster.</p>
+<p>However, a feature plot (plotmatrix) for <em>all</em> 50 attributes and <em>all</em> 19600 rows takes a few minutes to build.<br />This is unacceptably slow. So instead of using <em>caret</em> in RStudio, I prefer to work in the Weka GUI, which plots data much faster.</p>
 </div>
+</div>
+<div id="building-a-machine-learning-model." class="section level3">
+<h3>Building a machine learning model.</h3>
+<p>After some experimenting, I used a <em>J48</em> tree based algorithm.<br /><em>J48</em> generates unpruned or pruned C4.5 decision trees (Quinlan, 1993).</p>
+<p>Passing in the training data with the appended testing data removed:</p>
+<pre class="r"><code>library(RWeka)
+m1 &lt;- J48(classe ~ ., data = training[-20,])
+
+#J48(formula, data, subset, na.action,
+#    control = Weka_control(), options = NULL)</code></pre>
+<div id="summary-of-the-model." class="section level4">
+<h4>Summary of the model.</h4>
+<pre class="r"><code>summary(m1)</code></pre>
+<pre><code>## 
+## === Summary ===
+## 
+## Correctly Classified Instances       19518               99.4751 %
+## Incorrectly Classified Instances       103                0.5249 %
+## Kappa statistic                          0.9934
+## Mean absolute error                      0.0038
+## Root mean squared error                  0.0433
+## Relative absolute error                  1.1874 %
+## Root relative squared error             10.8968 %
+## Coverage of cases (0.95 level)          99.7044 %
+## Mean rel. region size (0.95 level)      20.3099 %
+## Total Number of Instances            19621     
+## 
+## === Confusion Matrix ===
+## 
+##     a    b    c    d    e   &lt;-- classified as
+##  5568    4    2    2    3 |    a = A
+##    10 3776    6    3    2 |    b = B
+##     2   13 3394    8    5 |    c = C
+##     3    6   15 3186    6 |    d = D
+##     2    4    3    4 3594 |    e = E</code></pre>
+<p>The model accuracy with default options is 99.48 - not bad for a first run.</p>
+<p>The predictions for the 20 test cases are:</p>
+<pre class="r"><code>tail(predict(m1, newdata=tail(training,20)), 20)</code></pre>
+<pre><code>##  [1] A A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+<p>I submitted this to the Coursera grader, and got 17 of 20 of the 20 test cases right. ###</p>
+</div>
+</div>
+<div id="references" class="section level3">
+<h3>References</h3>
+<p>R. Quinlan (1992). Learning with continuous classes. Proceedings of the Australian Joint Conference on Artificial Intelligence, 343–348. World Scientific, Singapore.</p>
+</div>
+<div id="appendix" class="section level3">
+<h3>Appendix</h3>
+<p>This is irrelevant to the readers. However</p>
+<ol style="list-style-type: decimal">
+<li>it was necessary for completion of the assignment.</li>
+<li>it documents some intermediate steps.</li>
+</ol>
 <div id="export-to-file-for-weka-explorer-gui-to-import" class="section level4">
 <h4>Export to file, for Weka (Explorer GUI) to import</h4>
 <div>
@@ -247,10 +299,15 @@ write.arff(t2, &quot;testing-transformed.arff&quot;, eol = &quot;\n&quot;)
 </pre>
 </div>
 
-
+</div>
+<div id="perform-analysis-in-the-weka-gui" class="section level4">
+<h4><em>… Perform analysis in the Weka GUI …</em></h4>
+<pre>
+(This is not reprocuded here.)
+</pre>
 </div>
 <div id="get-predictions-from-arff-file-written-by-weka" class="section level4">
-<h4>get predictions from arff file written by weka</h4>
+<h4>Get predictions from arff file written by weka</h4>
 <div>
 <pre>
 try(system(&quot;ls -l *.arff&quot;))

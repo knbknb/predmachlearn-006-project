@@ -193,9 +193,50 @@ Note that there are only 20 NAs. These are the appended test cases.
 
 
 However, a feature plot (plotmatrix) for *all* 50 attributes and *all* 19600 rows takes a few minutes to build.  
-This is unacceptably slow. So I prefer to work in Weka, which plots data much faster.
+This is unacceptably slow. So instead of using *caret* in RStudio, I prefer to work in the  Weka GUI, which plots data much faster.
+
+### Building a machine learning model.
+After some experimenting, I used a *J48* tree based algorithm.  
+*J48* generates unpruned or pruned C4.5 decision trees (Quinlan, 1993).  
+
+Passing in the training data with the appended testing data removed:
+```{r }
+library(RWeka)
+m1 <- J48(classe ~ ., data = training[-20,])
+
+#J48(formula, data, subset, na.action,
+#    control = Weka_control(), options = NULL)
+```
+
+#### Summary of the model.
+```{r}
+summary(m1)
+```
 
 
+The model accuracy with default options is `r round(summary(m1)$details["pctCorrect"],2)` - not bad for a first run.  
+
+The predictions for the 20 test cases are:
+```{r}
+
+tail(predict(m1, newdata=tail(training,20)), 20)
+
+
+```
+I submitted this to the Coursera grader, and got 17 of 20 of the 20 test cases right. 
+###
+
+
+### References
+R. Quinlan (1992). Learning with continuous classes. Proceedings of the Australian Joint Conference on Artificial Intelligence, 343–348. World Scientific, Singapore.
+
+
+### Appendix
+
+This is irrelevant to the readers. However
+
+  1. it was necessary for completion of the assignment.
+  1. it documents some intermediate steps.
 
 #### Export to file, for Weka (Explorer GUI) to import
 
@@ -208,8 +249,12 @@ write.arff(t2, "testing-transformed.arff", eol = "\n")
 </pre>
 </div>
 
+#### *... Perform analysis in the Weka GUI ...*
 
-#### get predictions from arff file written by weka
+<pre>
+(This is not reprocuded here.)
+</pre>
+#### Get predictions from arff file written by weka
 
 <div>
 <pre>
