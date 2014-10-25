@@ -13,17 +13,21 @@ if(host == "well"){
 #getwd()
 ```
 
+### Qualitative Activity Recognition of Weight Lifting Exercises.
+
 A Programming Project for Coursera MOOC "Practical Machine learning", v006 
-Qualitative Activity Recognition of Weight Lifting Exercises. 
+ 
 
 ### Synopsis 
 
-> Predicting the quality of physical exercising by means of automated Human Activity Recognition. Analysis from sensor data acquired from 6 men doing biceps-curls with dumbbells. The sensor data can be used to tell *how correct* the movements of the workout were done.  
+> Predicting the quality of physical exercising by means of automated "Human Activity Recognition". This means analysis of sensor data acquired from 6 men doing biceps-curls with dumbbells. The sensor data can be used to tell *how correct* the movements of the workout were done.  
 Please read [Background](background.html) to get familiar with the assignment and the subject matter. You can also read an [academic paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) from 2013 on the open dataset and its use in sports medicine.
 
 > The [researchers](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) were a team of at least of five people. Certainly they had the time to analyse the dataset very thoroughly. In contrast, I am a single individual taking off a couple of evenings to take a peek into the dataset. So this analysis is briefer. I will not take time-slices, as the authors did. It will focus on the dataset of a whole, and "only" on 50 of the 160 attributes provided.
 
-> For performance reasons, I used machine-learning toolbox *RWeka* (not *caret*) to run a tree-based algorithm *(J48)* on the 19600-row training data to predict values of classification-attribute of the 20-row testing-dataset. In a 10-fold leave-one-out cross-validation run with default parameters, the J48 model achieved a classification accuracy of 96%, and this sufficed to get 17 out of 20 test cases right (according to the Coursera grader).
+> For performance reasons, I used machine-learning toolbox *RWeka* (not *caret*) to run a tree-based algorithm *(J48)* on the 19600-row training data. The goal was to predict unknown values of the classification-attribute of a testing dataset with 20-rows. 
+
+> **Result**: In a 10-fold leave-one-out cross-validation run with default parameters, the J48 model achieved a classification accuracy of 99%, and this sufficed to get 17 out of 20 test cases right (according to the Coursera grader).
 
 ### Exploratory Analysis 1: Basics
 #### Read In Data Files, Load R Packages
@@ -71,9 +75,9 @@ qplot(classe, data=training, fill=user_name)
 
 ```
 
-Further exploratory analysis indicates that there are no outliers, at least not among in the most interesting parameters, to be described next.
+Further exploratory analysis indicates that there are no outliers, at least not among in the most interesting parameters, to be described below in section "Exploratory Analyis 3".
 
-A feature plot indicates that some users probably did not perform all types of "wrong" movements. 
+To illustrate, a 5x5 feature-plot indicates that some users probably did not perform all types of "wrong" movements. 
 
 ```{r cache=TRUE}
 #cols = "^roll|^pitch|^yaw|user_name|classe"
@@ -84,15 +88,15 @@ training_sample <-training[,grep(cols, names(training), perl=TRUE)]
 featurePlot(x=training_sample, y=training_sample$classe, plot="pairs")
 ```
 
-For example, 3 users "rolled" their belt, i.e. leaned forward, and 3 didn't.
+For example, 3 users "rolled their belt", i.e. *leaned forward* to some degree, and 3 didn't.
 ```{r results="hide", echo=FALSE}
 
-p <- qplot( roll_belt, user_name, data=training, geom=c("jitter" ))
+p <- qplot( roll_belt, user_name, data=training, geom=c("jitter" ), colour="yellow") + theme(legend.position="none")
 p
 
 
 ```
-
+This corresponds to the second-from-left plot in the last row of the plotmatrix.  
  I have performed more plotting, but this is omitted here.
  
 
@@ -101,11 +105,11 @@ p
 
 ### Exploratory Analysis 2: Temporarily append testing data to training data.
 In machine learning, it is important to make training data and testing data set *exactly* compatible.
-Here, training dataset and testing dataset differ in number of columns, and some colums differ in datatypes (logicals vs factors).
-I'll temporarily append the tiny testing dataset (n=20) to the training data (n ~ 19600) to do the subsequent attribute selection only once.
+Here, training dataset and testing dataset differ in number of columns (1 column), and some colums differ in datatypes (logicals vs factors).
+I'll temporarily append the tiny testing dataset (n=20) to the training data (n ~ 19600) to do the subsequent attribute filtering only once.
 
 ```{r}
-#remove last column, problemID
+#remove last column, "problemID"
 t2 <- testing[,1:(ncol(testing)-1)]
 #add empty "classe" col
 t2[ , "classe"] <- NA
@@ -129,7 +133,7 @@ comp2factinds <-which(as.logical(comp2))
 
 
 ```
-There are `r length(comp2factinds) ` columns with different column types.  
+There are neqcol = `r length(comp2factinds) ` columns with different column types.  
 Convert them:
 ```{r}
 #convert logicals to  factors
@@ -148,7 +152,7 @@ training <- rbind(training, t2)
 ntraining_after <-  nrow(training)
 rm(t2)
 ```
-The training data set has grown from `r ntraining_before` to `r ntraining_after` rows. I'll split them apart again after subsetting.
+The training data set has grown from `r ntraining_before` to `r ntraining_after` rows. I'll split them apart again, after subsetting.
 
 ### Exploratory Analysis 3: Selecting variables for modeling
  Close inspection of the attributes indicates that there are some more primary ("raw") sensor data,and there are lots of derived attributes, such as projections of raw coordinates into some spatial planes (the x-y plane, the x-z-plane etc). There are also descriptive statistics calculated from the raw sensor data. These descriptive statistics are prefixed (or suffixed) with "total\_", "var\_", "curtosis\_", "skewness\_", etc.
@@ -162,14 +166,15 @@ All these variables by definition represent *interactions* between the raw data.
 
 #### Removing irrelevant attributes
 
-In the synopsis it says, the sensors were placed on *belt, forearm, arm*, and *dumbbell*. The sensors register
+In the assignment's synopsis it says, the sensors were placed on *belt, forearm, arm*, and *dumbbell*. The sensors register
 
   1.  *x-y-z* coordinates (or accelerations) which are integers. 
   1. *roll, pitch* and *yaw* which are angle measurements, which are floats.
 
 
-There are also some categorical variables, *user_name*, and *classe* which we must keep for obvious reasons.
-Let's filter these variables from the dataset, by building a complex regular expression for matching relevant column names:
+There are also some categorical variables, *user_name*, and *classe* which we must keep for obvious reasons.  
+
+Let's filter out the relevant variables from the dataset, by building a complex regular expression for matching relevant column names:
 
 ```{r fet}
 
@@ -189,19 +194,19 @@ training <- subset(training, select=cols)
 ```{r}
 contents(training)
 ```
-These will be used for building a machine learning model.  
-Note that there are only 20 NAs. These are the appended test cases.
+These `r ncol(training)` attributes will be used for building a machine learning model.  
+Note that there are only 20 NAs in the "classe" attribute. These are the appended test cases.
 
+All attributes are numeric, and thus well suited for many algorithms.  
 
-
-However, a feature plot (plotmatrix) for *all* 50 attributes and *all* 19600 rows takes a few minutes to build.  
+However, a feature plot (plotmatrix) for *all* `r ncol(training)` attributes and *all* `r nrow(training)` rows takes a few minutes to build.  
 This is unacceptably slow. So instead of using *caret* in RStudio, I prefer to work in the  Weka GUI, which plots data much faster.
 
 ### Building a machine learning model.
 After some experimenting, I used a *J48* tree based algorithm.  
 *J48* generates unpruned or pruned C4.5 decision trees (Quinlan, 1993).  
 
-Passing in the training data with the appended testing data removed:
+Passing in the training data with the appended testing data removed, using default options: 
 ```{r }
 library(RWeka)
 m1 <- J48(classe ~ ., data = training[-20,])
@@ -210,29 +215,64 @@ m1 <- J48(classe ~ ., data = training[-20,])
 #    control = Weka_control(), options = NULL)
 ```
 
-#### Summary of the model.
+#### Summary of the J48 model.
 ```{r}
 summary(m1)
 ```
 
 
-The model accuracy with default options is `r round(summary(m1)$details["pctCorrect"],2)` - not bad for a first run.  
+The model accuracy is `r round(summary(m1)$details["pctCorrect"],2)`% - not bad for a first run.  
 
 The predictions for the 20 test cases are:
 ```{r}
 
-tail(predict(m1, newdata=tail(training,20)), 20)
+pred1 <- predict(m1, newdata=tail(training,20)); tail(pred1, 20)
 
 
 ```
 I submitted this to the Coursera grader, and got 17 of 20 of the 20 test cases right. 
-###
+
+
+### 'Bagging' machine learning model.
+Then I used a *Bagging*  algorithm (Breiman, 1996).  
+
+Passing in the training data with the appended testing data removed, using default options: 
+```{r }
+library(RWeka)
+m2 <- Bagging(classe ~ ., data = training[-20,])
+
+#J48(formula, data, subset, na.action,
+#    control = Weka_control(), options = NULL)
+```
+
+
+```{r}
+summary(m2)
+```
+
+
+The model accuracy is `r round(summary(m2)$details["pctCorrect"],2)`% - also not bad.  
+
+The predictions for the 20 test cases are slightly different this time:
+```{r}
+
+pred2 <- predict(m2, newdata=tail(training,20)); tail(pred2, 20)
+
+
+```
+Only element `r which(pred1 != pred2)`, "B", is different. I submitted this to the Coursera grader, and got it right. 
+
+
+
 
 
 ### References
+
+
+L. Breiman (1996). Bagging predictors. Machine Learning, 24/2, 123–140.
+
+
 R. Quinlan (1992). Learning with continuous classes. Proceedings of the Australian Joint Conference on Artificial Intelligence, 343–348. World Scientific, Singapore.
-
-
 ### Appendix
 
 This is irrelevant to the readers. However

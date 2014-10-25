@@ -177,3 +177,89 @@ sapply(locs_params, FUN=function(x){featurePlot(x=x, y=x$classe, plot="pairs")})
 ```
 
 
+
+### 'PART' machine learning model.
+Then I used a *PART*  algorithm with default options: 
+
+Passing in the training data with the appended testing data removed, 
+```{r }
+library(RWeka)
+m3 <- PART(classe ~ ., data = training[-20,])
+
+#J48(formula, data, subset, na.action,
+#    control = Weka_control(), options = NULL)
+```
+
+testing[18,"user_name"]
+
+```{r}
+summary(m3)
+```
+
+
+The model accuracy is `r round(summary(m3)$details["pctCorrect"],2)`% - also not bad.  
+
+The predictions for the 20 test cases are the same as for AdaBoostM1:
+```{r}
+
+pred3 <- predict(m3, newdata=tail(training,20)); tail(pred3, 20)
+
+
+```
+Again, only element  `r which(pred1 != pred3)`, "B" is different. 
+
+
+
+
+```{r}
+
+pred4 <- predict(m4, newdata=tail(training,20)); tail(pred4, 20)
+preddiff <- which(pred4 != pred1)
+preddiff
+```
+
+
+### 'LMT' machine learning model.
+```{r result="hide" }
+I noticed that  for the remaining 2 wrong test cases, participant `r u` was affected.
+u <- as.character(unique(testing[c(11,18),"user_name"]))
+```
+Then I used a *LMT*  algorithm with default options: 
+LMT implements “Logistic Model Trees” (Landwehr, 2003; Landwehr et al., 2005).
+Passing in the training data with the appended testing data removed, 
+```{r }
+library(RWeka)
+data5 <- training[training$user_name == u, -20]
+data5$user_name <- NULL
+subset(data5, )
+data5[,3] <- NULL
+n1 <- grep("timestamp", names(training), perl=TRUE)
+n <- grep("timestamp", names(training), perl=TRUE, value=TRUE)
+lapply(n, FUN=function(x){data5[,x] <- NULL})
+n
+m5 <- J48(classe ~ ., data = data5)
+
+```
+
+
+```{r}
+summary(m5)
+```
+
+
+The model accuracy is `r round(summary(m5)$details["pctCorrect"],2)`% - also not bad.  
+
+The predictions for the 20 test cases are the same as for AdaBoostM1:
+```{r}
+
+pred5 <- predict(m5, newdata=tail(training,20)); tail(pred5, 20)
+pred5
+
+```
+Again, only element  `r which(pred1 != pred5)`, "B" is different. 
+
+
+
+N. Landwehr (2003). Logistic Model Trees. Master's thesis, Institute for Computer Science, University of Freiburg, Germany. http://www.informatik.uni-freiburg.de/~ml/thesis_landwehr2003.html
+
+N. Landwehr, M. Hall, and E. Frank (2005). Logistic Model Trees. Machine Learning, 59, 161–205.
