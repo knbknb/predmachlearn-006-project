@@ -6,29 +6,39 @@ output: html_document
 ---
 
 ```{r echo=FALSE, return="hide"}
-if(system("uname -n") == "well"){
+host <-system("uname -n", intern = TRUE)
+if(host == "well"){
         setwd("~/Documents/coursera/datascience/08-machinelearning/predmachlearn-006-project")
 }
-
+#getwd()
 ```
 ###  Programming Project: Qualitative Activity Recognition of Weight Lifting Exercises. 
 
+### Synopsis 
 
-> Predicting the quality of physical exercising. Analysis from sensor data acquired during exercising with dumbbells.  
-Please read the file [Background](background.html) to get familiar with the assignment and the subject matter. You can also read an [academic paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) on the open dataset, its [creators](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) and its use in medicine.
+> Predicting the quality of physical exercising by means of automated Human Activity Recognition. Analysis from sensor data acquired from 6 men doing biceps-curls with dumbbells. The sensor data can be used to tell *how correct* the movements of the workout were done.  
+Please read the file [Background](background.html) to get familiar with the assignment and the subject matter. You can also read an [academic paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) from 2013 on the open dataset and its use in sports medicine.
 
+> The [researchers](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) were a team of at least of five people. Certainly they had the time to analyse the dataset very thoroughly. In contrast, I am a single individual taking off a couple of evenings to take a peek into the dataset. So this analysis is briefer. I will not take time-slices, as the authors did. It will focus on the dataset of a whole, and "only" on 50 of the 160 attributes provided.
+
+> For performance reasons, I used machine-learning toolbox *RWeka* (not *caret*) to run a tree-based algorithm *(J48)* on the 19600-row training data to predict values of classification-attribute of the 20-row testing-dataset. In a 10-fold leave-one-out cross-validation run with default parameters, the J48 model achieved a classification accuracy of 96%, and this sufficed to get 17 out of 20 test cases right (according to the Coursera grader).
+
+### Exploratory Analysis 1: Basics
 #### Read In Data Files, Load R Packages
-```{r init, return="hide"}
-getwd()
+```{r init, cache=TRUE, return="hide"}
+
 training <- read.csv("../data/pml-training.csv")
 testing <- read.csv("../data/pml-testing.csv")
 
 
 ```
 
-```{r return="hide", message=FALSE}
+
+```{r libs, dependson="init", return="hide", message=FALSE}
 library(Hmisc)
 library(ggplot2)
+library(caret) # for featurePlot
+library(RWeka)
 #contents(training)
 #descr <- describe(training)
 #str(descr)
@@ -36,14 +46,15 @@ library(ggplot2)
 
 
 ```
-The dataset is pretty clean. There is not much data cleaning necessery. All columns have nice all-lowercase, self-describing names, and few datatypes : `r unique(sapply(training, class))`).
+The dataset is pretty clean. There is not much preprocessing necessary. All columns have nice all-lowercase, self-describing names, and few datatypes : `r unique(sapply(training, class))`).
 There are `r length(names(training))` variables: 
 
 ```{r }
 nas <- colSums(is.na(training));table(nas)
-
 ```
-There are `r length(nas[nas == 0 ])` columns which have no NA values, and `r length(nas[nas !=0 ]) ` columns all of which have the same number of `r sprintf("%i", max(nas[nas !=0 ]))` NAs.
+There are `r length(nas[nas == 0 ])` columns which have 0 NA values, and `r length(nas[nas !=0 ]) ` columns all of which have the same number of `r sprintf("%i", max(nas[nas !=0 ]))` NAs.
+
+The 6 participants have performed the same number of exercises, at least it is comparable at the same order of magnitude.
 
 ```{r }
 
@@ -51,11 +62,194 @@ table(training$user_name)
 
 ```
 
+They have also produced the same number of *types* of exercises, (which happens to be the classification attribute, labeled "classe" by the researchers):
+
 ```{r}
 qplot(classe, data=training, fill=user_name)
 
-p <- ggplot(training, aes=(user_name))
-p <- p+  geom_bar()
-p
 ```
 
+Further exploratory analysis indicates that there are no outliers, at least not among in the most interesting parameters, to be described next.
+
+A feature plot indicates that some users probably did not perform all types of "wrong" movements. 
+
+```{r cache=TRUE}
+#cols = "^roll|^pitch|^yaw|user_name|classe"
+cols = "(?:^roll|^pitch|^yaw)_belt"
+cols <- paste0(cols, "|user_name|classe")
+#sample(nrow(training), nsamp) & 
+training_sample <-training[,grep(cols, names(training), perl=TRUE)]
+featurePlot(x=training_sample, y=training_sample$classe, plot="pairs")
+```
+
+For example, 3 users "rolled" their belt, i.e. leaned forward, and 3 didn't.
+```{r results="hide", echo=FALSE}
+
+p <- qplot( roll_belt, user_name, data=training, geom=c("jitter" ))
+p
+
+
+```
+
+ I have performed more plotting, but this is omitted here.
+ 
+
+
+
+
+### Exploratory Analysis 2: Temporarily append testing data to training data.
+In machine learning, it is important to make training data and testing data set *exactly* compatible.
+Here, training dataset and testing dataset differ in number of columns, and some colums differ in datatypes (logicals vs factors).
+I'll temporarily append the tiny testing dataset (n=20) to the training data (n ~ 19600) to do the subsequent attribute selection only once.
+
+```{r}
+#remove last column, problemID
+t2 <- testing[,1:(ncol(testing)-1)]
+#add empty "classe" col
+t2[ , "classe"] <- NA
+#convert to factor
+t2$classe <- factor((t2$classe))
+class(t2$classe)
+
+```
+Check if training data and testing data have different column names:
+```{r}
+comp1 <- names(t2) != names(training)
+neqcol <- length(which(as.logical(comp1), arr.ind = TRUE))
+```
+There are `r neqcol` non-equal column names in testing and training data set.
+
+Check if training data and testing data have different column *types*:  
+```{r}
+comp2 <- unlist(lapply(t2, class)) != unlist(lapply( training, class))
+comp2factinds <-which(as.logical(comp2))
+
+
+
+```
+There are `r length(comp2factinds) ` columns with different column types.  
+Convert them:
+```{r}
+#convert logicals to  factors
+t2[sapply(t2, is.logical)] <- lapply(t2[sapply(t2, is.logical)], as.factor)
+
+# another round of checks
+temp1 <- lapply(comp2factinds, FUN<- function(x){t2[,x] <- factor(t2[,x])})
+temp2 <- unlist(lapply(t2, class))
+temp3 <- unlist(lapply( training, class))
+
+comp3 <- unlist(temp2 != temp3)
+comp3factinds <-which(as.logical(comp3))
+
+ntraining_before <- nrow(training)
+training <- rbind(training, t2)
+ntraining_after <-  nrow(training)
+rm(t2)
+```
+The training data set has grown from `r ntraining_before` to `r ntraining_after` rows. I'll split them apart again after subsetting.
+
+### Exploratory Analysis 3: Selecting variables for modeling
+ Close inspection of the attributes indicates that there are some more primary ("raw") sensor data,and there are lots of derived attributes, such as projections of raw coordinates into some spatial planes (the x-y plane, the x-z-plane etc). There are also descriptive statistics calculated from the raw sensor data. These descriptive statistics are prefixed (or suffixed) with "total\_", "var\_", "curtosis\_", "skewness\_", etc.
+
+ I do not know how they calculated these decriptive metrics. Probably by time-slicing (folding) some of the raw data. Note there are some columns *(`r grep("window", names(training), perl=TRUE, value=TRUE)`)*, maybe indicative of sliding time-windows. 
+
+
+There are some time-series data encoded in the dataset *(`r grep("timestamp", names(training), perl=TRUE, value=TRUE)`)*, but we'll just ignore them. They were important for the researchers, to conduct various numerical experiments: how fast did their algorithms and models respond? How small can the training dataset be to make accurate predictions?
+
+All these variables by definition represent *interactions* between the raw data. These derived attributes also contain lots of NAs. To make modeling easier, it is best to *remove* the attributes entirely.  
+
+#### Removing irrelevant attributes
+
+In the synopsis it says, the sensors were placed on *belt, forearm, arm*, and *dumbbell*. The sensors register
+
+  1.  *x-y-z* coordinates (or accelerations) which are integers. 
+  1. *roll, pitch* and *yaw* which are angle measurements, which are floats.
+
+
+There are also some categorical variables, *user_name*, and *classe* which we must keep for obvious reasons.
+Let's filter these variables from the dataset, by building a complex regular expression for matching relevant column names:
+
+```{r fet}
+
+rx <- "(^roll|^pitch|^yaw|classe|user_name|.*_x$|.*_y$|.*_z$).*"
+cols <-grep(rx, names(training), perl=TRUE, value=TRUE)
+
+```
+
+Subsetting the data frame:
+```{r}
+
+training <- subset(training, select=cols)
+
+```
+**The interesting remaining `r nrow(cols)` columns are**:
+
+```{r}
+contents(training)
+```
+These will be used for building a machine learning model.  
+Note that there are only 20 NAs. These are the appended test cases.
+
+
+
+However, a feature plot (plotmatrix) for *all* 50 attributes and *all* 19600 rows takes a few minutes to build.  
+This is unacceptably slow. So I prefer to work in Weka, which plots data much faster.
+
+
+
+#### Export to file, for Weka (Explorer GUI) to import
+
+<div>
+<pre>
+getwd()
+library(RWeka)
+# write composite dataset to arff file
+write.arff(t2, "testing-transformed.arff", eol = "\n")
+</pre>
+</div>
+
+
+#### get predictions from arff file written by weka
+
+<div>
+<pre>
+try(system("ls -l *.arff"))
+predicts <- read.arff("trainingtesting-cols-predictions.arff")
+res <- as.vector(t(tail(predicts[3],20) ))
+write.arff(t2, "testing-transformed.arff", eol = "\n")
+</pre>
+</div>
+
+
+#### Export to file system, for submission to Coursera.
+Write one file per prediction, each file consisting only of one prediction, a capital letter , from A to E.
+We also write 1 file with all predictions for 'diff'ing experiments.
+
+<div>
+<pre>
+try(system("mkdir results"))
+setwd("results")
+pml_write_files(res)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+ x <- 1:20
+  l <- c()
+  n <- 20
+  for(i in 1:n){
+        l <- paste0(l, paste0(i, "\t",  x[i], "\n"))
+  
+  }
+  # write 1 file with all predictions for 'diff'ing
+  d <- format(Sys.time(), "%Y%m%d_%H%M")
+  filename = paste0("_problems_20_",d,".txt")
+  write.table(paste0(d, "\n\n",l),file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  paste0(getwd(), .Platform$file.sep, filename)
+}
+
+</pre>
+</div>

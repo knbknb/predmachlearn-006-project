@@ -14,11 +14,14 @@ getwd()
 ```
 ###  Programming Project: Qualitative Activity Recognition of Weight Lifting Exercises. 
 
+### Synopsis 
 
-> Predicting the quality of physical exercising. Analysis from sensor data acquired during exercising with dumbbells.  
+> Predicting the quality of physical exercising. Analysis from sensor data acquired during exercising with dumbbells. This is Human Activity Recognition.  
 Please read the file [Background](background.html) to get familiar with the assignment and the subject matter. You can also read an [academic paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) on the open dataset, its [creators](http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201) and its use in medicine.
 
-### Exploratory Phase 
+> The researchers were a team of at least of five people. Certainly they had the time to analyse the dataset very thoroughly. In contrast, I am a single individual taking off a couple of evenings to take a peek into the dataset. So this analysis is briefer. I will not take time-slices, as the authors did. It will focus on the dataset of a whole, and "only" on 50 of the 160 attributes provided.
+
+### Exploratory Analysis 1: Basics
 #### Read In Data Files, Load R Packages
 ```{r init, cache=TRUE, return="hide"}
 
@@ -28,10 +31,12 @@ testing <- read.csv("../data/pml-testing.csv")
 
 ```
 
+
 ```{r libs, dependson="init", return="hide", message=FALSE}
 library(Hmisc)
 library(ggplot2)
 library(caret)
+library(RWeka)
 #contents(training)
 #descr <- describe(training)
 #str(descr)
@@ -46,7 +51,7 @@ There are `r length(names(training))` variables:
 nas <- colSums(is.na(training));table(nas)
 
 ```
-There are `r length(nas[nas == 0 ])` columns which have no NA values, and `r length(nas[nas !=0 ]) ` columns all of which have the same number of `r sprintf("%i", max(nas[nas !=0 ]))` NAs.
+There are `r length(nas[nas == 0 ])` columns which have *no* NA values, and `r length(nas[nas !=0 ]) ` columns all of which have the same number of `r sprintf("%i", max(nas[nas !=0 ]))` NAs.
 
 The 6 participants have performed the same number of exercises, at least it is comparable at the same order of magnitude.
 
@@ -63,11 +68,87 @@ qplot(classe, data=training, fill=user_name)
 
 ```
 
+Further exploratory analysis indicates that there are no outliers, at least not amount in the most interesting parameters, to be described next.
 
-*belt, forearm, arm, and dumbbell*
+There are some time-series data encoded in the dataset (`r grep("timestamp", names(training), perl=TRUE, value=TRUE)`), but we'll just ignore them. They were important for the researcher, to conduct various numerical experiments: how fast did their algorithms and models respond? How small can the training dataset be to make accurate predictions?
+
+
+
+### Exploratory Analysis 2: Make training data and testing data set *exactly* compatible
+Training dataset and testing dataset differ in number of columns, and some colums differ in datatypes (logicals vs factors)
+I'll append the tiny testing data (n=20) to the training data (n ~ 19600) to do the subsequent attribute selection only once.
+
+```{r}
+#remove last column, problemID
+t2 <- testing[,1:(ncol(testing)-1)]
+#add empty "classe" col
+t2[ , "classe"] <- NA
+#convert to factor
+t2$classe <- factor((t2$classe))
+class(t2$classe)
+
+```
+Check if training data and testing data have different column names:
+```{r}
+comp1 <- names(t2) != names(training)
+neqcol <- length(which(as.logical(comp1), arr.ind = TRUE))
+```
+There are `r neqcol`non-equal column names in testing and training data set.
+
+Check if training data and testing data have different column *types*:  
+```{r}
+comp2 <- unlist(lapply(t2, class)) != unlist(lapply( training, class))
+comp2factinds <-which(as.logical(comp2))
+
+
+
+```
+There are `r length(comp2factinds) ` columns with different column types.  
+Convert them:
+```{r}
+#convert logicals to  factors
+t2[sapply(t2, is.logical)] <- lapply(t2[sapply(t2, is.logical)], as.factor)
+
+# another round of checks
+lapply(comp2factinds, FUN<- function(x){t2[,x] <- factor(t2[,x])})
+unlist(lapply(t2, class)) != unlist(lapply( training, class))
+
+comp3 <- unlist(lapply(t2, class)) != unlist(lapply( training, class))
+comp3factinds <-which(as.logical(comp3))
+
+ntraining_before <- nrow(training)
+training <- rbind(training, t2)
+ntraining_after <-  nrow(training)
+
+```
+The training data set has grown from `r ntraining_before` to `r ntraining_after` rows. I'll split them apart again after subsetting.
+
+### Exploratory Analysis 3: Selecting variables for modeling
+ Close inspection of the attributes indicates that there are some more primary ("raw") sensor data,and there are lots of derived attributes, such as projections of raw coordinates into some spatial planes (the x-y plane, the x-z-plane etc). There are also, and descriptive statistics calculated from the raw sensor data. These descriptive statistics are prefixed (or suffixed) with "total\_", "var\_", "curtosis\_", "skewness\_", etc.
+
+ I do not know how they calculated these decriptive metrics. Probably by time-slicing (folding) some of the raw data. 
+ These variables by definition represent interactions between the raw data. These derived attributes also contain lots of NAs. To make modeling easier, it is best to remove the attributes entirely.
+
+#### Removing irrelevant attributes
+
+In the synopsis it says, the sensors were placed on *belt, forearm, arm*, and *dumbbell*. The sensors register
+1.  *x-y-z* coordinates which are integers. 
+1. *roll, pitch* and *yaw* which are angle measurements, which are floats.
+1. *acceleration* measurements which are ints.
+
+There are also some categorical variables, *user_name*, *classe*, and *problem_id* which we must keep for obvious reasons.
+Lets filter these variables from the dataset:
+```{r results="hide", echo=FALSE}
+# for weka, to be described later
+weka_pattern <- "(^roll|^pitch|^yaw|classe|user_name|.*_x$|.*_y$|.*_z$).*" 
+
+```
+
+### more preliminary analysis
 ```{r fet}
-goodattr<- "|classe|user_name|problem|^roll|^pitch|^yaw_"
-locs <- paste0(c("belt", "forearm", "(?<!fore)arm", "dumbbell"),  goodattr)
+goodangle <-"|^roll|^pitch|^yaw_"
+goodfact<- "|classe|user_name|problem"
+locs <- paste0(c("belt", "forearm", "(?<!fore)arm", "dumbbell"),  goodangle, goodfact)
 coord<- paste0(c("_[xyz]$"), goodattr)
 locs_params <- lapply(locs, FUN=function(x){i <- grep(x, names(training), perl=TRUE); training[, i]})
 locs_params_coord <- lapply(locs_params, FUN=function(x){i <-  grep(coord, names(x), perl=TRUE); x[, i]})
@@ -82,9 +163,10 @@ p <- p + geom_bar()
 p <- p+  facet_grid(user_name ~ . )
 p
 
+
 df=locs_params_coord[[1]]
 
-sdf <-df[sample(nrow(df), 30),]
+sdf <-df[sample(nrow(df), 300),]
 
 featurePlot(x=sdf, y=sdf$classe, plot="pairs")
 
@@ -93,4 +175,5 @@ par(2,2)
 lapply(locs_params, names)
 sapply(locs_params, FUN=function(x){featurePlot(x=x, y=x$classe, plot="pairs")})
 ```
+
 
