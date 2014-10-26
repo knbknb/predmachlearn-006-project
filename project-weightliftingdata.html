@@ -85,7 +85,7 @@ testing &lt;- read.csv(&quot;../data/pml-testing.csv&quot;)</code></pre>
 <pre class="r"><code>library(Hmisc)
 library(ggplot2)
 library(caret) # for featurePlot
-library(RWeka)
+library(RWeka) # for predicting
 #contents(training)
 #descr &lt;- describe(training)
 #str(descr)</code></pre>
@@ -244,7 +244,11 @@ cols &lt;-grep(rx, names(training), perl=TRUE, value=TRUE)</code></pre>
 <p>After some experimenting, I used a <em>J48</em> tree based algorithm.<br /><em>J48</em> generates unpruned or pruned C4.5 decision trees (Quinlan, 1993).</p>
 <p>Passing in the training data with the appended testing data removed, using default options:</p>
 <pre class="r"><code>library(RWeka)
-m1 &lt;- J48(classe ~ ., data = training[-20,])
+testdata &lt;- tail(training,20)
+#try(write.arff(testdata, &quot;testing-transformed-50attrs.arff&quot;, eol = &quot;\n&quot;))
+traindata &lt;- training[-20,]
+#try(write.arff(traindata, &quot;training-transformed-50attrs.arff&quot;, eol = &quot;\n&quot;))
+m1 &lt;- J48(classe ~ ., data = traindata)
 
 #J48(formula, data, subset, na.action,
 #    control = Weka_control(), options = NULL)</code></pre>
@@ -275,7 +279,7 @@ m1 &lt;- J48(classe ~ ., data = training[-20,])
 ##     2    4    3    4 3594 |    e = E</code></pre>
 <p>The model accuracy is 99.48% - not bad for a first run.</p>
 <p>The predictions for the 20 test cases are:</p>
-<pre class="r"><code>pred1 &lt;- predict(m1, newdata=tail(training,20)); tail(pred1, 20)</code></pre>
+<pre class="r"><code>pred1 &lt;- predict(m1, newdata=testdata); tail(pred1, 20)</code></pre>
 <pre><code>##  [1] A A B A A E D B A A B C B A E E A B B B
 ## Levels: A B C D E</code></pre>
 <p>I submitted this to the Coursera grader, and got 17 of 20 of the 20 test cases right.</p>
@@ -315,10 +319,11 @@ m2 &lt;- Bagging(classe ~ ., data = training[-20,])
 ##     0    4    0    4 3599 |    e = E</code></pre>
 <p>The model accuracy is 99.44% - also not bad.</p>
 <p>The predictions for the 20 test cases are slightly different this time:</p>
-<pre class="r"><code>pred2 &lt;- predict(m2, newdata=tail(training,20)); tail(pred2, 20)</code></pre>
+<pre class="r"><code>pred2 &lt;- predict(m2, newdata=testdata); tail(pred2, 20)</code></pre>
 <pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
 ## Levels: A B C D E</code></pre>
 <p>Only element 1, “B”, is different. I submitted this to the Coursera grader, and got it right.</p>
+<p>I checked a bunch of other algorithms, e.g. “Logisitic, SMO, NaiveBayes*, all with default options, but none performed better.</p>
 </div>
 <div id="references" class="section level3">
 <h3>References</h3>

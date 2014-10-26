@@ -209,9 +209,9 @@ After some experimenting, I used a *J48* tree based algorithm.
 Passing in the training data with the appended testing data removed, using default options: 
 ```{r }
 library(RWeka)
-#testdata <- tail(training,20)
+testdata <- tail(training,20)
 #try(write.arff(testdata, "testing-transformed-50attrs.arff", eol = "\n"))
-#traindata <- training[-20,]
+traindata <- training[-20,]
 #try(write.arff(traindata, "training-transformed-50attrs.arff", eol = "\n"))
 m1 <- J48(classe ~ ., data = traindata)
 
@@ -230,7 +230,7 @@ The model accuracy is `r round(summary(m1)$details["pctCorrect"],2)`% - not bad 
 The predictions for the 20 test cases are:
 ```{r}
 
-pred1 <- predict(m1, newdata=tail(training,20)); tail(pred1, 20)
+pred1 <- predict(m1, newdata=testdata); tail(pred1, 20)
 
 
 ```
@@ -260,7 +260,7 @@ The model accuracy is `r round(summary(m2)$details["pctCorrect"],2)`% - also not
 The predictions for the 20 test cases are slightly different this time:
 ```{r}
 
-pred2 <- predict(m2, newdata=testdata; tail(pred2, 20)
+pred2 <- predict(m2, newdata=testdata); tail(pred2, 20)
 
 
 ```
