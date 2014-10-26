@@ -12,3 +12,5 @@ Please see http://knbknb.github.io/predmachlearn-006-project/project-weightlifti
 Please see http://knbknb.github.io/predmachlearn-006-project/background.html for the background and objectives of this assignment.
 
 Please see https://www.coursera.org/course/predmachlearn for general information on this Coursera class.
+
+Please see the gh-pages branch for the *.Rmd files. Stuff in the master branch can be ignored.
