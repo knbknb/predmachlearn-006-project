@@ -44,7 +44,7 @@ testing <- read.csv("../data/pml-testing.csv")
 library(Hmisc)
 library(ggplot2)
 library(caret) # for featurePlot
-library(RWeka)
+library(RWeka) # for predicting
 #contents(training)
 #descr <- describe(training)
 #str(descr)
@@ -209,7 +209,11 @@ After some experimenting, I used a *J48* tree based algorithm.
 Passing in the training data with the appended testing data removed, using default options: 
 ```{r }
 library(RWeka)
-m1 <- J48(classe ~ ., data = training[-20,])
+#testdata <- tail(training,20)
+#try(write.arff(testdata, "testing-transformed-50attrs.arff", eol = "\n"))
+#traindata <- training[-20,]
+#try(write.arff(traindata, "training-transformed-50attrs.arff", eol = "\n"))
+m1 <- J48(classe ~ ., data = traindata)
 
 #J48(formula, data, subset, na.action,
 #    control = Weka_control(), options = NULL)
@@ -256,14 +260,14 @@ The model accuracy is `r round(summary(m2)$details["pctCorrect"],2)`% - also not
 The predictions for the 20 test cases are slightly different this time:
 ```{r}
 
-pred2 <- predict(m2, newdata=tail(training,20)); tail(pred2, 20)
+pred2 <- predict(m2, newdata=testdata; tail(pred2, 20)
 
 
 ```
 Only element `r which(pred1 != pred2)`, "B", is different. I submitted this to the Coursera grader, and got it right. 
 
 
-
+I checked a bunch of other algorithms, e.g. "Logisitic, SMO, NaiveBayes*, all with default options, but none performed better.
 
 
 ### References
@@ -273,9 +277,11 @@ L. Breiman (1996). Bagging predictors. Machine Learning, 24/2, 123–140.
 
 
 R. Quinlan (1992). Learning with continuous classes. Proceedings of the Australian Joint Conference on Artificial Intelligence, 343–348. World Scientific, Singapore.
+
+
 ### Appendix
 
-This is irrelevant to the readers. However
+The following is irrelevant to the readers. However
 
   1. it was necessary for completion of the assignment.
   1. it documents some intermediate steps.
