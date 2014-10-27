@@ -15,4 +15,4 @@ Please see https://www.coursera.org/course/predmachlearn for general information
 
 **Please see the gh-pages branch for the *.Rmd files.** Stuff in the master branch can be ignored. 
 
-Those reviewers not familiar with github: Click on the button on the upper left labeled "branch: master" and switch to the *gh-pages* branch.
+To those reviewers not familiar with github: Click on the button on the upper left labeled "branch: *master*" and switch to the *gh-pages* branch.
