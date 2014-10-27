@@ -14,6 +14,4 @@ Please see http://knbknb.github.io/predmachlearn-006-project/background.html for
 
 Please see https://www.coursera.org/course/predmachlearn for general information on this Coursera class.
 
-**Please see the gh-pages branch for the *.Rmd files.** Stuff in the master branch can be ignored. 
-
-To those reviewers not familiar with github: If you're reading this: Yes, this is the right branch.
+**To those reviewers not familiar with github:** If you're reading this: Yes, this is the right branch.
